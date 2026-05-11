@@ -8,6 +8,19 @@ Key points (short):
 - Main covariates: population offset (log(pop)), precipitation (preci → PRCP) with lags (lag1, lag2), and maximum temperature (temp_max → TEMPmax) with lags (lag1, lag2, lag3). Natural splines are used for most lagged climate covariates.
 - Input/outputs: training uses `data/harmonized_data.csv` and outputs fitted model RDS plus quartile summaries and training metadata in `output/`.
 
+# Adding as a CHAP model
+
+You can include the following line in `config/configured_models/default.yaml`:
+
+```yaml
+- url: https://github.com/umn-ccbr/st-climate-chap-model
+  versions:
+    main: "@main"
+```
+
+*This is currently in testing*, as I haven't been able to get this
+model to appear by doing this in my own CHAP-core instance.
+
 ## Files 
 - `train.r` — main training script. Loads augmented data from `model_helpers.R`, selects an optimal orgunit/time configuration from `output/tradeoff_orgunits_vs_months.csv` (produced by `scripts/find_complete_timespan.py`), subsets the adjacency matrix `W_orgunits_CARBayesST.rds`, computes spline knot quartiles, fits `ST.CARar`, and saves the fitted model (`.rds`) and quartiles.
 - `model_helpers.R` — helper functions:
