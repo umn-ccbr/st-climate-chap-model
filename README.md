@@ -1,98 +1,45 @@
-# Minimalist example of R model integration with CHAP 
-This document demonstrates a minimalist example of how to write a CHAP-compatible forecasting model. The example is written in R, uses few variables without any lag and a standard machine learning model. It simply learns a linear regression from rain and temperature to disease cases in the same month, without considering any previous disease or climate data. It also assumes and works only with a single region. The model is not meant to accurately capture any interesting relations - the purpose is just to show how CHAP integration works in a simplest possible setting. Note that we include `options(warn=1)` at the top in both train.R and predict.R to see warnings and catch errors when running it through CHAP. This helps a lot with avoiding package depencies for more complex models.
+# ST-CAR spatiotemporal forecasting model (R)
 
-## Running the model without CHAP integration
-Before getting a new model to work as part of CHAP, it can be useful to develop and debug it while running it directly a small dataset from file. 
+This repository contains an R implementation of a spatiotemporal disease forecasting model intended as a CHAP-compatible example for integration with DHIS2/CHAP workflows. The core model is a Poisson spatiotemporal CAR model (CARBayesST::ST.CARar) that models area-level monthly disease counts with spatial random effects and temporal autoregression.
 
-The example can be run in isolation (e.g. from the command line) using the file isolated_run.r:
-```
-RScript isolated_run.r  
-```
+Key points (short):
+- Modeling approach: ST.CARar (CARBayesST) — Poisson outcome with area-level spatial random effects and AR temporal structure.
+- Target: area-month disease counts (variable `disease_cases` / `marlaria` in the pipeline).
+- Main covariates: population offset (log(pop)), precipitation (preci → PRCP) with lags (lag1, lag2), and maximum temperature (temp_max → TEMPmax) with lags (lag1, lag2, lag3). Natural splines are used for most lagged climate covariates.
+- Input/outputs: training uses `data/harmonized_data.csv` and outputs fitted model RDS plus quartile summaries and training metadata in `output/`.
 
-This file only contains two code lines:  
-* A call to a function "train", which trains a model from an input file "trainData.csv" and stores the trained model in a file "model.bin":
-```R
-train_chap("input/trainData.csv", "output/model.bin")
-```
+## Files 
+- `train.r` — main training script. Loads augmented data from `model_helpers.R`, selects an optimal orgunit/time configuration from `output/tradeoff_orgunits_vs_months.csv` (produced by `scripts/find_complete_timespan.py`), subsets the adjacency matrix `W_orgunits_CARBayesST.rds`, computes spline knot quartiles, fits `ST.CARar`, and saves the fitted model (`.rds`) and quartiles.
+- `model_helpers.R` — helper functions:
+  - `augment_harmonized_data()` reads `data/harmonized_data.csv`, creates `spaceid`/`timeid`, centers climate predictors, and creates lagged covariates: `lag1_PRCP`, `lag2_PRCP`, `lag1_TEMPmax`, `lag2_TEMPmax`, `lag3_TEMPmax`.
+  - `compute_lag_quartiles()` computes 25/50/75% quartiles for each lag variable and returns knot locations for splines.
+- `predict.r` — prediction/inference utilities. Contains a (work-in-progress) MCMC prediction routine that re-uses training components (summary, design matrix, adjacency) to produce predictive samples. Also includes `predict_chap()` — a minimal wrapper that reads a saved model and future climate CSV and writes predictions.
+- `scripts/find_complete_timespan.py` — helper to find recommended orgunits and time spans (used by training).
+- `W_orgunits_CARBayesST.rds` — adjacency matrix keyed by `orgunitname` used for CAR spatial structure.
+- `TRAINING_REFACTOR_SUMMARY.md` — details of the refactored training pipeline and the chosen optimal configuration.
 
-* A call to a function "predict" uses the stored model to forecast future disease cases (to a file "predictions.csv") based on input data on future climate predictions (from a file futureClimateData.csv):
-```R
-predict_chap("output/model.bin", "input/trainData.csv", "input/futureClimateData.csv", "output/predictions.csv")
-```
+## Model covariates and offsets
+- Outcome: `disease_cases` (also referenced as `marlaria` in some helper code).
+- Offset: log(pop) where `pop` is population per area-month.
+- Climate covariates (centered across dataset):
+  - Precipitation (`preci` → `PRCP`), used with lags: `lag1_PRCP`, `lag2_PRCP` (natural splines).
+  - Maximum temperature (`temp_max` → `TEMPmax`), used as `TEMPmax` and lagged spline terms `lag1_TEMPmax`, `lag2_TEMPmax`, `lag3_TEMPmax`. (Note: a spline on `TEMPmax` was commented out in `train.r` due to collinearity; a linear temp term is included.)
 
+## How training works (high level)
+1. Data augmentation: `augment_harmonized_data()` constructs lagged covariates and indexing fields required by CARBayesST.
+2. Configuration selection: `train.r` loads a tradeoff table and recommended orgunits to pick a balanced panel (orgunits × months) that maximizes usable observations and ends at the most recent month.
+3. Adjacency handling: `W` is subset to selected orgunits. Isolated areas (zero neighbors) are given 1–3 random neighbors as a stopgap to avoid modeling issues.
+4. Spline knots: quartiles of lag covariates are computed to place natural spline knots.
+5. Fit: `ST.CARar(...)` with Poisson family, offset(log(pop)), spline/transformed covariates, AR(2) temporal structure, and spatial CAR prior.
 
-### Training data
-The example uses a minimalist input data containing rainfall, temperature and disease cases for a single region and two time points ("traindata.csv"):
-```csv
-time_period,rainfall,mean_temperature,disease_cases,location
-2023-05,10,30,200,loc1
-2023-06,2,30,100,loc1
-2023-06,1,35,100,loc1
-```
+## Prediction / outputs
+- Fitted model saved as an RDS file (path passed to `predict_chap()` or other prediction utilities).
+- Quartile/knot information saved alongside the model (model_fn.quartiles) to ensure consistent pre-processing at prediction time.
+- Prediction utilities in `predict.r` produce MCMC draws and pointwise mean predictions; they expect the same covariate names and indexing as in training.
 
-### Training the model
-The file "train.r" contains the code to train a model. It reads in training data from a csv file to a data frame. It learns a linear regression from rainfall and mean_temperature (X) to disease_cases (Y). The trained model is stored to file using saveRDS:
-```
-train_chap <- function(csv_fn, model_fn) {
-  df <- read.csv(csv_fn)
-  df$disease_cases[is.na(df$disease_cases)] <- 0
-  model <- lm(disease_cases ~ rainfall + mean_temperature, data = df)
-  saveRDS(model, file=model_fn)
-}
-
-```
-### Future climate data
-A minimalist future (predicted) climate data is provided in a file "futureClimateData.csv". This file contains climate data for what is considered to be future periods (weather forecasts). It naturally contains no disease data):  
-```
-time_period,rainfall,mean_temperature,location
-2023-07,20,20,loc1
-2023-08,30,20,loc1
-2023-09,30,30,loc1
-```
-
-### Generating forecasts
-The file "predict.py" contains the code to forecast disease cases ahead in time based on future climate data (weather forecasts) and a previously trained model read from file. The disease forecasts are stored as a column in a csv file predictions_fn:
-```
-predict_chap <- function(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn) {
-  df <- read.csv(future_climatedata_fn)
-  X <- df[, c("rainfall", "mean_temperature"), drop = FALSE]
-  model <- readRDS(model_fn)  # Assumes the model was saved using saveRDS
-
-  y_pred <- predict(model, newdata = X)
-  df$sample_0 <- y_pred
-  write.csv(df, predictions_fn, row.names = FALSE)
-
-  print(paste("Forecasted values:", paste(y_pred, collapse = ", ")))
-}
-
-```
-
-## Running the minimalist model as part of CHAP
-To run the minimalist model in CHAP, we first define the model interface in an MLFlow-based yaml specification (in the file "MLproject", which defines :
-
-```yaml
-name: minimalist_r
-
-docker_env:
-  image: ivargr/r_inla:latest
-
-entry_points:
-  train:
-    parameters:
-      train_data: path
-      model: str
-    command: "Rscript train.r {train_data} {model}"
-  predict:
-    parameters:
-      historic_data: path
-      future_data: path
-      model: str
-      out_file: path
-    command: "Rscript predict.r {model} {historic_data} {future_data} {out_file}"
-```
-The commands then calls the Rscripts train.r and predict.r and the code under the definition of the train and predict functions ensures they are called and with the correct arguments. If these parts are missing the code will fail when run through CHAP, but could still work locally through isolated run.
-CHAP relies on Docker to run models defined in non-python programming languages (i.e. R), you thus need Docker installed to run your model successfully through CHAP. Please see the chap-core documentation for help in succeeding with this.  
-After you have installed chap-core (see here for installation instructions: https://github.com/dhis2-chap/chap-core), it should be possible to run the minimalist model through CHAP as follows (remember to replace '/path/to/your/model/directory' with your local path):
-```
-chap evaluate --model-name /path/to/your/model/directory --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil --report-filename report.pdf
-```
+## CHAP and DHIS2 integration
+- CHAP integration: The repository follows the CHAP model layout and provides MLproject/entry points in the original example. CHAP runs the `train` and `predict` entry points inside a Docker image. To integrate with CHAP ensure the MLproject entry points point to `train.r` and `predict.r`, and provide a Docker image with R and required packages (`CARBayesST`, `splines`, and dependencies).
+- DHIS2 integration / operationalization: The model expects area-level monthly inputs keyed by `orgunitname` and `time` and will output area-month forecasts. For DHIS2 integration you can:
+  - Export DHIS2 aggregated case counts and population for each org unit and month into the harmonized CSV format used here.
+  - Run the CHAP evaluation or the prediction wrapper to produce forecast CSVs, then map forecast rows back to DHIS2 orgunit IDs and time periods and push as aggregated data values or events via the DHIS2 API.
+  - For production, automate harmonization (DHIS2→CSV) and prediction schedule, and implement a small adapter to convert CSV outputs into DHIS2-compatible payloads.
