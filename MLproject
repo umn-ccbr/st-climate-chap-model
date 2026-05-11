@@ -1,0 +1,25 @@
+name: malaria_spatiotemporal
+
+target: disease_cases
+required_covariates: 
+  - population
+  - preci
+  - temp_max
+supported_period_type: month
+
+docker_env:
+  image: ghcr.io/artemish/malaria-spatial-model:0.1.2
+
+entry_points:
+  train:
+    parameters:
+      train_data: path
+      model: str
+    command: "Rscript train.r {train_data} {model}"
+  predict:
+    parameters:
+      historic_data: path
+      future_data: path
+      model: str
+      out_file: path
+    command: "Rscript predict.r {model} {historic_data} {future_data} {out_file}"
