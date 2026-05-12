@@ -8,8 +8,27 @@ augment_harmonized_data <- function(
 ) {
   # ---- Load harmonized CSV ----
   df <- read.csv(csv_path, stringsAsFactors = FALSE)
-  
-  required_cols <- c("time", "orgunitname", # "orgunitid", 
+
+  # ---- Normalise CHAP-written column names to the names used internally ----
+  # CHAP writes: time_period (YYYY-MM), location, population
+  # Internal names expected below: time (YYYYMM), orgunitname, pop
+  if ("time_period" %in% names(df) && !"time" %in% names(df)) {
+    # Convert "2017-01" → 201701
+    df$time <- as.integer(gsub("-", "", df$time_period))
+  }
+  if ("location" %in% names(df) && !"orgunitname" %in% names(df)) {
+    df$orgunitname <- df$location
+  }
+  if ("population" %in% names(df) && !"pop" %in% names(df)) {
+    df$pop <- df$population
+  }
+
+  # CARBayesST Poisson requires integer response; CHAP's DataSet always writes float.
+  if ("disease_cases" %in% names(df)) {
+    df$disease_cases <- suppressWarnings(as.integer(round(as.numeric(df$disease_cases))))
+  }
+
+  required_cols <- c("time", "orgunitname", # "orgunitid",
                      "temp_max", "preci", "pop", "disease_cases")
   missing <- setdiff(required_cols, names(df))
   if (length(missing) > 0) {

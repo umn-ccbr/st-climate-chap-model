@@ -20,76 +20,79 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, config = default_model_c
   aug4 <- subset(aug, timeid > 4)
 
   # Load tradeoff analysis and select optimal configuration
-  cat("Loading tradeoff analysis from: output/tradeoff_orgunits_vs_months.csv\n")
-  tradeoff_path <- "output/tradeoff_orgunits_vs_months.csv"
-  
-  if (!file.exists(tradeoff_path)) {
-    stop("Tradeoff analysis file not found. Please run scripts/find_complete_timespan.py first.")
-  }
-  
-  tradeoff <- read.csv(tradeoff_path, stringsAsFactors = FALSE)
-  
-  # Filter for configurations that end at the most recent month
-  # Handle both TRUE/FALSE (R) and "True"/"False" (Python) formats
-  tradeoff$ends_at_recent <- as.logical(ifelse(tradeoff$ends_at_recent == "True", TRUE, 
-                                               ifelse(tradeoff$ends_at_recent == "False", FALSE, 
-                                                      tradeoff$ends_at_recent)))
-  recent_configs <- tradeoff[tradeoff$ends_at_recent == TRUE, ]
-  
-  # Pick the configuration with the largest total_obs
-  # Prefer recent configs, but if none exist, pick from all configs
-  if (nrow(recent_configs) > 0) {
-    best_config <- recent_configs[which.max(recent_configs$total_obs), ]
-    cat("Selected configuration ends at most recent month\n")
-  } else {
-    cat("WARNING: No configurations end at most recent month. Selecting best available configuration.\n")
-    # Remove configs with 0 observations
-    valid_configs <- tradeoff[tradeoff$total_obs > 0, ]
-    if (nrow(valid_configs) == 0) {
-      stop("No valid configurations found with any observations.")
+  # When run via CHAP (Docker) these files may not exist; fall back to using all
+  # orgunits and the full time span present in the input data.
+  tradeoff_path     <- "output/tradeoff_orgunits_vs_months.csv"
+  recommended_path  <- "output/recommended_orgunits.csv"
+
+  if (file.exists(tradeoff_path) && file.exists(recommended_path)) {
+    cat("Loading tradeoff analysis from:", tradeoff_path, "\n")
+    tradeoff <- read.csv(tradeoff_path, stringsAsFactors = FALSE)
+
+    # Handle both TRUE/FALSE (R) and "True"/"False" (Python) formats
+    tradeoff$ends_at_recent <- as.logical(ifelse(tradeoff$ends_at_recent == "True", TRUE,
+                                                 ifelse(tradeoff$ends_at_recent == "False", FALSE,
+                                                        tradeoff$ends_at_recent)))
+    recent_configs <- tradeoff[tradeoff$ends_at_recent == TRUE, ]
+
+    if (nrow(recent_configs) > 0) {
+      best_config <- recent_configs[which.max(recent_configs$total_obs), ]
+      cat("Selected configuration ends at most recent month\n")
+    } else {
+      cat("WARNING: No configurations end at most recent month. Selecting best available configuration.\n")
+      valid_configs <- tradeoff[tradeoff$total_obs > 0, ]
+      if (nrow(valid_configs) == 0) stop("No valid configurations found with any observations.")
+      best_config <- valid_configs[which.max(valid_configs$total_obs), ]
     }
-    best_config <- valid_configs[which.max(valid_configs$total_obs), ]
+
+    cat("Selected optimal configuration:\n")
+    cat("  Number of orgunits:", best_config$n_units, "\n")
+    cat("  Number of months:", best_config$n_months, "\n")
+    cat("  Time range:", best_config$start_time, "to", best_config$end_time, "\n")
+    cat("  Time ID range:", best_config$start_timeid, "to", best_config$end_timeid, "\n")
+    cat("  Total observations:", best_config$total_obs, "\n")
+
+    recommended  <- read.csv(recommended_path, stringsAsFactors = FALSE)
+    selected_units <- recommended$orgunitname
+    cat("Loaded", length(selected_units), "recommended orgunits\n")
+
+    cat("Filtering data to selected orgunits and time span...\n")
+    aug4 <- aug4[aug4$orgunitname %in% selected_units &
+                 aug4$timeid >= best_config$start_timeid &
+                 aug4$timeid <= best_config$end_timeid, ]
+    cat("Rows after filtering:", nrow(aug4), "\n")
+
+    training_metadata <- list(
+      n_units        = best_config$n_units,
+      n_months       = best_config$n_months,
+      start_time     = best_config$start_time,
+      end_time       = best_config$end_time,
+      start_timeid   = best_config$start_timeid,
+      end_timeid     = best_config$end_timeid,
+      total_obs      = best_config$total_obs,
+      selected_orgunits = selected_units
+    )
+  } else {
+    # ---- Fallback: use all orgunits / all time periods in the provided data ----
+    cat("Tradeoff analysis files not found — using all orgunits and all time periods in input data.\n")
+    selected_units <- sort(unique(aug4$orgunitname))
+    cat("  Orgunits:", length(selected_units), "\n")
+    cat("  Time periods:", length(unique(aug4$timeid)), "\n")
+
+    training_metadata <- list(
+      n_units        = length(selected_units),
+      n_months       = length(unique(aug4$timeid)),
+      start_time     = min(aug4$time),
+      end_time       = max(aug4$time),
+      start_timeid   = min(aug4$timeid),
+      end_timeid     = max(aug4$timeid),
+      total_obs      = nrow(aug4),
+      selected_orgunits = selected_units
+    )
   }
-  
-  cat("Selected optimal configuration:\n")
-  cat("  Number of orgunits:", best_config$n_units, "\n")
-  cat("  Number of months:", best_config$n_months, "\n")
-  cat("  Time range:", best_config$start_time, "to", best_config$end_time, "\n")
-  cat("  Time ID range:", best_config$start_timeid, "to", best_config$end_timeid, "\n")
-  cat("  Total observations:", best_config$total_obs, "\n")
-  
-  # Load the recommended orgunits
-  recommended_path <- "output/recommended_orgunits.csv"
-  if (!file.exists(recommended_path)) {
-    stop("Recommended orgunits file not found. Please run scripts/find_complete_timespan.py first.")
-  }
-  
-  recommended <- read.csv(recommended_path, stringsAsFactors = FALSE)
-  selected_units <- recommended$orgunitname
-  
-  cat("Loaded", length(selected_units), "recommended orgunits\n")
-  
-  # Filter data to selected orgunits and time span
-  cat("Filtering data to selected orgunits and time span...\n")
-  aug4 <- aug4[aug4$orgunitname %in% selected_units & 
-               aug4$timeid >= best_config$start_timeid & 
-               aug4$timeid <= best_config$end_timeid, ]
-  
-  cat("Rows after filtering:", nrow(aug4), "\n")
-  
-  # Save training metadata
-  training_metadata <- list(
-    n_units = best_config$n_units,
-    n_months = best_config$n_months,
-    start_time = best_config$start_time,
-    end_time = best_config$end_time,
-    start_timeid = best_config$start_timeid,
-    end_timeid = best_config$end_timeid,
-    total_obs = best_config$total_obs,
-    selected_orgunits = selected_units
-  )
   
   metadata_path <- "output/training_metadata.rds"
+  dir.create("output", showWarnings = FALSE, recursive = TRUE)
   saveRDS(training_metadata, file = metadata_path)
   cat("Saved training metadata to:", metadata_path, "\n")
   
@@ -125,13 +128,24 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, config = default_model_c
   
   # Check for NAs in each variable
   cat("\nNA counts by variable:\n")
+  covariate_vars <- c("pop", "preci", "temp_max",
+                      "lag1_PRCP", "lag2_PRCP",
+                      "lag1_TEMPmax", "lag2_TEMPmax", "lag3_TEMPmax")
   for (v in vars_all) {
     na_count <- sum(is.na(aug4[[v]]))
     if (na_count > 0) {
       cat("  ", v, ":", na_count, "NAs\n")
     }
   }
-  
+
+  # Drop rows where any covariate (not outcome) is NA — CARBayesST cannot handle
+  # NA values in the design matrix, but can handle missing disease_cases (missing Y).
+  covariate_na_rows <- rowSums(is.na(aug4[, covariate_vars])) > 0
+  if (any(covariate_na_rows)) {
+    cat("Dropping", sum(covariate_na_rows), "rows with NA in covariate columns\n")
+    aug4 <- aug4[!covariate_na_rows, ]
+  }
+
   # Use data as-is without filtering
   dat <- aug4
   
@@ -242,8 +256,7 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, config = default_model_c
     burnin   = config$burnin,   # feel free to increase for real runs
     n.sample = config$n_sample,  # feel free to increase for real runs
     thin     = config$thin,
-    n.chains = 3,
-    n.cores  = 3,
+    n.chains = 1,
     AR       = 2,
     verbose  = TRUE
   )
