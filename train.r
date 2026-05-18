@@ -5,6 +5,7 @@
 
 library(CARBayesST)
 library(splines)
+library(yaml)
 
 # Source helper functions: augment_harmonized_data(), compute_lag_quartiles()
 source("model_helpers.R")
@@ -273,11 +274,32 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, config = default_model_c
 # ---- CLI interface ----
 args <- commandArgs(trailingOnly = TRUE)
 
-if (length(args) == 2) {
-  csv_fn   <- args[1]
-  model_fn <- args[2]
+parse_args <- function(args) {
+  result <- list(data = NULL)
+  i <- 1
+  while (i <= length(args)) {
+    if (args[i] == "--data" && i + 1 <= length(args)) {
+      result$data <- args[i + 1]
+      i <- i + 2
+    } else {
+      i <- i + 1
+    }
+  }
+  result
+}
 
-  train_chap(csv_fn, model_fn)
+parsed <- parse_args(args)
+if (!is.null(parsed$data)) {
+  # Load config from config.yml (written by chapkit before the script runs)
+  config <- default_model_config
+  if (file.exists("config.yml")) {
+    cfg <- yaml::read_yaml("config.yml")
+    if (!is.null(cfg$n_sample))  config$n_sample  <- as.integer(cfg$n_sample)
+    if (!is.null(cfg$burnin))    config$burnin    <- as.integer(cfg$burnin)
+    if (!is.null(cfg$thin))      config$thin      <- as.integer(cfg$thin)
+  }
+  train_chap(parsed$data, "model.rds", config = config)
 } else {
-  cat("Usage: Rscript train.r <trainingData.csv> <output_model.rds>\n")
+  cat("Usage: Rscript train.r --data <trainingData.csv>\n")
+  quit(status = 1)
 }

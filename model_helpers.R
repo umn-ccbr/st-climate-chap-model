@@ -139,9 +139,9 @@ compute_lag_quartiles <- function(df) {
 }
 
 default_model_config <- list(
-  n_sample              = 50000,
-  burnin                = 10000,
-  thin                  = 40,
+  n_sample              = 1100,
+  burnin                = 100,
+  thin                  = 10,
   prediction_time_point = 56,
   proposal_sd_phi       = 0.1,
   save_predictions      = TRUE,
