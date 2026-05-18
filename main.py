@@ -41,7 +41,7 @@ app = (
         ),
         info=info,
         runner=ShellModelRunner(
-            train_command="Rscript train.r --data {data_file}",
+            train_command="Rscript train.r --data {data_file} --polygons {geo_file}",
             predict_command=(
                 "Rscript predict.r "
                 "--historic {historic_file} "

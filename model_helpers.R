@@ -29,11 +29,17 @@ augment_harmonized_data <- function(
   }
 
   required_cols <- c("time", "orgunitname", # "orgunitid",
-                     "temp_max", "preci", "pop", "disease_cases")
+                     "temp_max", "preci", "pop")
   missing <- setdiff(required_cols, names(df))
   if (length(missing) > 0) {
     stop("Missing expected columns in harmonized data: ",
          paste(missing, collapse = ", "))
+  }
+
+  # disease_cases is required for training but absent in future/prediction data;
+  # fill with NA so augment_harmonized_data can be used for both.
+  if (!"disease_cases" %in% names(df)) {
+    df$disease_cases <- NA_integer_
   }
   
   # ---- Basic indices for CARBayesST-style use later ----

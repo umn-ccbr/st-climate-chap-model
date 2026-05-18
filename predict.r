@@ -27,9 +27,42 @@ predict_chap <- function(model_fn, historic_data_fn, future_data_fn, predictions
   cat("Training time span:", metadata$start_time, "-", metadata$end_time,
       " | orgunits:", metadata$n_units, "\n")
 
-  # ── Augment future data ───────────────────────────────────────────────────
+  # ── Augment future data using historic context for lag computation ───────
+  # Lags must be computed over the combined historic+future window so that the
+  # first future time steps have valid lag1/lag2/lag3 values.
+  cat("Loading historic data from:", historic_data_fn, "\n")
+  historic <- augment_harmonized_data(historic_data_fn)
+
   cat("Loading and augmenting future data from:", future_data_fn, "\n")
-  future <- augment_harmonized_data(future_data_fn)
+  raw_future <- read.csv(future_data_fn, stringsAsFactors = FALSE)
+  # Identify the future time periods before merging
+  if ("time_period" %in% names(raw_future)) {
+    future_times_raw <- unique(as.integer(gsub("-", "", raw_future$time_period)))
+  } else {
+    future_times_raw <- unique(as.integer(gsub("-", "", raw_future$time)))
+  }
+
+  # Combine historic + future, compute lags together, then extract future rows
+  combined <- augment_harmonized_data(
+    csv_path = future_data_fn  # will be replaced below via rbind trick
+  )
+  # Rebuild by row-binding the raw CSVs and re-running augment on combined file
+  hist_raw  <- read.csv(historic_data_fn, stringsAsFactors = FALSE)
+  fut_raw   <- read.csv(future_data_fn,   stringsAsFactors = FALSE)
+  # Align columns: fill any column present in one but not the other with NA
+  all_cols <- union(names(hist_raw), names(fut_raw))
+  for (col in setdiff(all_cols, names(hist_raw))) hist_raw[[col]] <- NA
+  for (col in setdiff(all_cols, names(fut_raw)))  fut_raw[[col]]  <- NA
+  hist_raw     <- hist_raw[, all_cols, drop = FALSE]
+  fut_raw      <- fut_raw[,  all_cols, drop = FALSE]
+  combined_raw <- rbind(hist_raw, fut_raw)
+  tmp_combined <- tempfile(fileext = ".csv")
+  write.csv(combined_raw, tmp_combined, row.names = FALSE)
+  combined <- augment_harmonized_data(tmp_combined)
+  file.remove(tmp_combined)
+
+  # Keep only the future time steps
+  future <- combined[combined$time %in% future_times_raw, ]
 
   # Keep only orgunits present in training
   trained_units <- sort(metadata$selected_orgunits)

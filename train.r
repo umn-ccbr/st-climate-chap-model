@@ -13,7 +13,7 @@ source("model_helpers.R")
 # Path to adjacency matrix (orgunitname x orgunitname), adjust if needed
 W_FN <- "W_orgunits_CARBayesST.rds"
 
-train_chap <- function(csv_fn, model_fn, W_path = W_FN, config = default_model_config) {
+train_chap <- function(csv_fn, model_fn, W_path = W_FN, polygons_fn = NULL, config = default_model_config) {
   cat("Loading and augmenting data from:", csv_fn, "\n")
   aug <- augment_harmonized_data(csv_fn)
 
@@ -161,8 +161,29 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, config = default_model_c
   quartiles <- compute_lag_quartiles(dat)
 
   # Load adjacency matrix W (indexed by orgunitname)
-  cat("Loading adjacency matrix from:", W_path, "\n")
-  W <- readRDS(W_path)
+  # If a polygons GeoJSON was provided, generate the adjacency matrix from it
+  # (keyed by DHIS2 UID, matching the location column in the training data).
+  # Otherwise fall back to the pre-built RDS file.
+  cat("Loading adjacency matrix...\n")
+  adjacency_csv <- "adjacency_run.csv"
+  if (!is.null(polygons_fn) && nzchar(polygons_fn) && file.exists(polygons_fn)) {
+    cat("Generating adjacency matrix from polygons:", polygons_fn, "\n")
+    ret <- system2(
+      "python3",
+      args = c("utils.py", polygons_fn, "--label", "id", "--output", adjacency_csv),
+      stdout = TRUE, stderr = TRUE
+    )
+    if (!is.null(attr(ret, "status")) && attr(ret, "status") != 0) {
+      stop("Failed to generate adjacency matrix from polygons: ", paste(ret, collapse = "\n"))
+    }
+    cat(paste(ret, collapse = "\n"), "\n")
+    cat("Loading adjacency CSV:", adjacency_csv, "\n")
+    W_df <- read.csv(adjacency_csv, row.names = 1, check.names = FALSE)
+    W <- as.matrix(W_df)
+  } else {
+    cat("No polygons file provided — loading pre-built adjacency matrix from:", W_path, "\n")
+    W <- readRDS(W_path)
+  }
 
   # Restrict W to the orgunits actually present in the model data
   areas <- sort(unique(dat$orgunitname))
@@ -275,11 +296,14 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, config = default_model_c
 args <- commandArgs(trailingOnly = TRUE)
 
 parse_args <- function(args) {
-  result <- list(data = NULL)
+  result <- list(data = NULL, polygons = NULL)
   i <- 1
   while (i <= length(args)) {
     if (args[i] == "--data" && i + 1 <= length(args)) {
       result$data <- args[i + 1]
+      i <- i + 2
+    } else if (args[i] == "--polygons" && i + 1 <= length(args)) {
+      result$polygons <- args[i + 1]
       i <- i + 2
     } else {
       i <- i + 1
@@ -298,8 +322,8 @@ if (!is.null(parsed$data)) {
     if (!is.null(cfg$burnin))    config$burnin    <- as.integer(cfg$burnin)
     if (!is.null(cfg$thin))      config$thin      <- as.integer(cfg$thin)
   }
-  train_chap(parsed$data, "model.rds", config = config)
+  train_chap(parsed$data, "model.rds", polygons_fn = parsed$polygons, config = config)
 } else {
-  cat("Usage: Rscript train.r --data <trainingData.csv>\n")
+  cat("Usage: Rscript train.r --data <trainingData.csv> [--polygons <geo.json>]\n")
   quit(status = 1)
 }

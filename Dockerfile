@@ -16,10 +16,11 @@ WORKDIR /work
 # ── Install R packages not already in the base image ──────────────────────
 RUN R -e "install.packages(c('CARBayesST', 'yaml'), repos = 'https://cloud.r-project.org')"
 
-# ── Install Python deps (chapkit) ──────────────────────────────────────────
-RUN uv pip install chapkit
+# ── Install Python deps (chapkit + spatial utils) ───────────────────────────
+RUN uv pip install chapkit geopandas
 
 # ── Copy model source files ────────────────────────────────────────────────
+COPY utils.py                     ./utils.py
 COPY train.r                      ./train.r
 COPY predict.r                    ./predict.r
 COPY model_helpers.R              ./model_helpers.R
