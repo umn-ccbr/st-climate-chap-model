@@ -27,7 +27,6 @@ COPY model_helpers.R              ./model_helpers.R
 COPY new_predict.R                ./new_predict.R
 COPY main.py                      ./main.py
 COPY W_orgunits_CARBayesST.rds    ./W_orgunits_CARBayesST.rds
-COPY adjacency_orgunits.csv       ./adjacency_orgunits.csv
 COPY scripts/                     ./scripts/
 
 CMD ["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"]
