@@ -51,7 +51,6 @@ def build_adjacency_matrix_from_geojson(
 
             W_df <- read.csv("adjacency.csv", row.names = 1, check.names = FALSE)
             W    <- as.matrix(W_df)
-            saveRDS(W, "W_orgunits_CARBayesST.rds")
 
     Returns
     -------

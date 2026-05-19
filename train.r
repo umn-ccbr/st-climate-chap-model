@@ -10,10 +10,7 @@ library(yaml)
 # Source helper functions: augment_harmonized_data(), compute_lag_quartiles()
 source("model_helpers.R")
 
-# Path to adjacency matrix (orgunitname x orgunitname), adjust if needed
-W_FN <- "W_orgunits_CARBayesST.rds"
-
-train_chap <- function(csv_fn, model_fn, W_path = W_FN, polygons_fn = NULL, config = default_model_config) {
+train_chap <- function(csv_fn, model_fn, polygons_fn = NULL, config = default_model_config) {
   cat("Loading and augmenting data from:", csv_fn, "\n")
   aug <- augment_harmonized_data(csv_fn)
 
@@ -161,9 +158,8 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, polygons_fn = NULL, conf
   quartiles <- compute_lag_quartiles(dat)
 
   # Load adjacency matrix W (indexed by orgunitname)
-  # If a polygons GeoJSON was provided, generate the adjacency matrix from it
-  # (keyed by DHIS2 UID, matching the location column in the training data).
-  # Otherwise fall back to the pre-built RDS file.
+  # A polygons GeoJSON must be provided via --polygons; it is used to generate
+  # the adjacency matrix.  Training will fail if none is supplied.
   cat("Loading adjacency matrix...\n")
   adjacency_csv <- "adjacency_run.csv"
   if (!is.null(polygons_fn) && nzchar(polygons_fn) && file.exists(polygons_fn)) {
@@ -181,8 +177,7 @@ train_chap <- function(csv_fn, model_fn, W_path = W_FN, polygons_fn = NULL, conf
     W_df <- read.csv(adjacency_csv, row.names = 1, check.names = FALSE)
     W <- as.matrix(W_df)
   } else {
-    cat("No polygons file provided — loading pre-built adjacency matrix from:", W_path, "\n")
-    W <- readRDS(W_path)
+    stop("No polygons file provided. A GeoJSON file must be supplied via --polygons to build the adjacency matrix.")
   }
 
   # Restrict W to the orgunits actually present in the model data
