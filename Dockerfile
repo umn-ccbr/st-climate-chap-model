@@ -24,7 +24,6 @@ COPY utils.py                     ./utils.py
 COPY train.r                      ./train.r
 COPY predict.r                    ./predict.r
 COPY model_helpers.R              ./model_helpers.R
-COPY new_predict.R                ./new_predict.R
 COPY main.py                      ./main.py
 COPY scripts/                     ./scripts/
 

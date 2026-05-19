@@ -8,6 +8,16 @@ Key points (short):
 - Main covariates: population offset (log(pop)), precipitation (preci → PRCP) with lags (lag1, lag2), and maximum temperature (temp_max → TEMPmax) with lags (lag1, lag2, lag3). Natural splines are used for most lagged climate covariates.
 - Input/outputs: training uses `data/harmonized_data.csv` and outputs fitted model RDS plus quartile summaries and training metadata in `output/`.
 
+# Test run with sample Malaria dataset
+
+Here's a quick command you can run to start this model in its
+container, and run an evaluation with the `chap` CLI tool:
+
+```sh
+$ docker compose up --build
+$ chap eval --model-name 'http://localhost:9090' --dataset-csv ./test-run/test-run.csv --output-file ./test-run/test-run-eval.nc --run-config.is-chapkit-model
+```
+
 # Adding as a CHAP model
 
 You can include the following line in `config/configured_models/default.yaml`:
