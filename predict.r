@@ -109,20 +109,30 @@ predict_chap <- function(model_fn, historic_data_fn, future_data_fn, predictions
     X_future <<- model.matrix(
       ~ ns(lag1_PRCP,    knots = c(quartiles$lag1_PRCP_q1,
                                    quartiles$lag1_PRCP_q2,
-                                   quartiles$lag1_PRCP_q3)) +
+                                   quartiles$lag1_PRCP_q3),
+                         Boundary.knots = c(quartiles$lag1_PRCP_min,
+                                            quartiles$lag1_PRCP_max)) +
         ns(lag2_PRCP,    knots = c(quartiles$lag2_PRCP_q1,
                                    quartiles$lag2_PRCP_q2,
-                                   quartiles$lag2_PRCP_q3)) +
+                                   quartiles$lag2_PRCP_q3),
+                         Boundary.knots = c(quartiles$lag2_PRCP_min,
+                                            quartiles$lag2_PRCP_max)) +
         temp_max +
         ns(lag1_TEMPmax, knots = c(quartiles$lag1_TEMPmax_q1,
                                    quartiles$lag1_TEMPmax_q2,
-                                   quartiles$lag1_TEMPmax_q3)) +
+                                   quartiles$lag1_TEMPmax_q3),
+                         Boundary.knots = c(quartiles$lag1_TEMPmax_min,
+                                            quartiles$lag1_TEMPmax_max)) +
         ns(lag2_TEMPmax, knots = c(quartiles$lag2_TEMPmax_q1,
                                    quartiles$lag2_TEMPmax_q2,
-                                   quartiles$lag2_TEMPmax_q3)) +
+                                   quartiles$lag2_TEMPmax_q3),
+                         Boundary.knots = c(quartiles$lag2_TEMPmax_min,
+                                            quartiles$lag2_TEMPmax_max)) +
         ns(lag3_TEMPmax, knots = c(quartiles$lag3_TEMPmax_q1,
                                    quartiles$lag3_TEMPmax_q2,
-                                   quartiles$lag3_TEMPmax_q3)),
+                                   quartiles$lag3_TEMPmax_q3),
+                         Boundary.knots = c(quartiles$lag3_TEMPmax_min,
+                                            quartiles$lag3_TEMPmax_max)),
       data = future
     )
   }, error = function(e) {
