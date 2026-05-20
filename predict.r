@@ -168,7 +168,8 @@ predict_chap <- function(model_fn, historic_data_fn, future_data_fn, predictions
   return(invisible(out))
 }
 
-# ── CLI entry point ───────────────────────────────────────────────────────
+# ── CLI entry point (only runs when executed directly, not when source()d) ──
+if (sys.nframe() == 0L) {
 args <- commandArgs(trailingOnly = TRUE)
 
 parse_args <- function(args) {
@@ -200,4 +201,5 @@ if (!is.null(parsed$historic) && !is.null(parsed$future) && !is.null(parsed$outp
   cat("Usage: Rscript predict.r --historic <historic.csv> --future <future.csv> --output <predictions.csv>\n")
   quit(status = 1)
 }
+} # end sys.nframe() == 0L
 

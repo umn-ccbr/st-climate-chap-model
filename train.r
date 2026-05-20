@@ -287,7 +287,8 @@ train_chap <- function(csv_fn, model_fn, polygons_fn = NULL, config = default_mo
   cat("Done.\n")
 }
 
-# ---- CLI interface ----
+# ---- CLI interface (only runs when executed directly, not when source()d) ----
+if (sys.nframe() == 0L) {
 args <- commandArgs(trailingOnly = TRUE)
 
 parse_args <- function(args) {
@@ -322,3 +323,4 @@ if (!is.null(parsed$data)) {
   cat("Usage: Rscript train.r --data <trainingData.csv> [--polygons <geo.json>]\n")
   quit(status = 1)
 }
+} # end sys.nframe() == 0L
