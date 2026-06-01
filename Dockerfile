@@ -9,7 +9,7 @@
 # Run directly:
 #   docker run --rm -p 9090:8000 malaria-spatiotemporal
 
-FROM ghcr.io/dhis2-chap/chapkit-r-inla:latest
+FROM --platform=linux/amd64 ghcr.io/dhis2-chap/chapkit-r-inla:latest
 
 WORKDIR /work
 

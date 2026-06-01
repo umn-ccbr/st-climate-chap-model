@@ -157,6 +157,13 @@ train_chap <- function(csv_fn, model_fn, polygons_fn = NULL, config = default_mo
   cat("Computing quartiles for spline knots...\n")
   quartiles <- compute_lag_quartiles(dat)
 
+  # Save training min/max as boundary knots so extreme out-of-range prediction
+  # values don't compress the interior knots and make the spline degenerate.
+  for (col in c("lag1_PRCP", "lag2_PRCP", "lag1_TEMPmax", "lag2_TEMPmax", "lag3_TEMPmax")) {
+    quartiles[[paste0(col, "_min")]] <- min(dat[[col]], na.rm = TRUE)
+    quartiles[[paste0(col, "_max")]] <- max(dat[[col]], na.rm = TRUE)
+  }
+
   # Load adjacency matrix W (indexed by orgunitname)
   # A polygons GeoJSON must be provided via --polygons; it is used to generate
   # the adjacency matrix.  Training will fail if none is supplied.
@@ -287,7 +294,8 @@ train_chap <- function(csv_fn, model_fn, polygons_fn = NULL, config = default_mo
   cat("Done.\n")
 }
 
-# ---- CLI interface ----
+# ---- CLI interface (only runs when executed directly, not when source()d) ----
+if (sys.nframe() == 0L) {
 args <- commandArgs(trailingOnly = TRUE)
 
 parse_args <- function(args) {
@@ -322,3 +330,4 @@ if (!is.null(parsed$data)) {
   cat("Usage: Rscript train.r --data <trainingData.csv> [--polygons <geo.json>]\n")
   quit(status = 1)
 }
+} # end sys.nframe() == 0L

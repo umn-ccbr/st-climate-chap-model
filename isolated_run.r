@@ -2,13 +2,14 @@ source("train.r")
 source("predict.r")
 
 train_chap(
-  "input/training_data_harmonized.csv",
-  "output/model.bin"
+  csv_fn      = "test-run/test-run.csv",
+  model_fn    = "model.rds",
+  polygons_fn = "test-run/test-run.geojson"
 )
 
 predict_chap(
-  "output/model.bin",
-  "data/training_data_harmonized_filled.csv",
-  "input/test_data_harmonized.csv",
-  "output/predictions.csv"
+  model_fn         = "model.rds",
+  historic_data_fn = "test-run/test-run.csv",
+  future_data_fn   = "test-run/test-run.csv",
+  predictions_fn   = "test-run/predictions.csv"
 )
