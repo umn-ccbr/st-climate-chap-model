@@ -15,7 +15,7 @@ entry_points:
     parameters:
       train_data: path
       model: str
-    command: "Rscript train.r {train_data} {model}"
+    command: "Rscript train.r {train_data} {model} --polygons {polygons}"
   predict:
     parameters:
       historic_data: path
