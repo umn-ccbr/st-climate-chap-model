@@ -28,7 +28,8 @@ info=MLServiceInfo(
         author_note="Integrating ST model with chapkit",
         author_assessed_status=AssessedStatus.orange,
         contact_email="croal008@umn.edu",
-    )
+    ),
+    required_covariates=['preci', 'population', 'temp_max'],
 )
 
 
@@ -51,5 +52,6 @@ app = (
             config_format="flat",
         ),
     )
+    .with_registration()
     .build()
 )
