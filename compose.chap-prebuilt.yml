@@ -1,0 +1,14 @@
+# compose.my-model.yml
+services:
+  malaria-spatial-model:
+    image: ghcr.io/artemish/malaria-spatial-model:0.3.1
+    platform: linux/amd64  # only if your base image needs it
+    ports:
+      - "5010:8000"   # host:container - host port must not collide with chap (8000) or other models
+    environment:
+      SERVICEKIT_ORCHESTRATOR_URL: http://chap:8000/v2/services/$$register
+      # Uncomment if chap has SERVICEKIT_REGISTRATION_KEY set:
+      # SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
+    depends_on:
+      chap:
+        condition: service_healthy
