@@ -30,6 +30,7 @@ info=MLServiceInfo(
         contact_email="croal008@umn.edu",
     ),
     required_covariates=['preci', 'population', 'temp_max'],
+    requires_geo=True,
 )
 
 
