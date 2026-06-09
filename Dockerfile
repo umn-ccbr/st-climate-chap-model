@@ -16,6 +16,9 @@ WORKDIR /work
 # ── Install R packages not already in the base image ──────────────────────
 RUN R -e "install.packages(c('CARBayesST', 'yaml'), repos = 'https://cloud.r-project.org')"
 
+COPY pyproject.toml               ./pyproject.toml
+COPY uv.lock                      ./uv.lock
+
 # ── Install Python deps (chapkit + spatial utils) ───────────────────────────
 RUN uv pip install chapkit geopandas
 
@@ -26,5 +29,7 @@ COPY predict.r                    ./predict.r
 COPY model_helpers.R              ./model_helpers.R
 COPY main.py                      ./main.py
 COPY scripts/                     ./scripts/
+
+LABEL org.opencontainers.image.source https://github.com/umn-ccbr/st-climate-chap-model
 
 CMD ["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"]
