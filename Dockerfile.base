@@ -1,0 +1,17 @@
+# Dockerfile — st-climate-chap-model
+#
+# Builds on the chapkit-r-inla base image (R 4.5 + INLA + spatial stack),
+# installs CARBayesST and yaml, then installs the Python chapkit service layer.
+#
+# Build:
+#   docker build -t malaria-spatiotemporal .
+#
+# Run directly:
+#   docker run --rm -p 9090:8000 malaria-spatiotemporal
+
+FROM --platform=linux/amd64 ghcr.io/dhis2-chap/chapkit-r-inla:latest
+
+WORKDIR /work
+
+# ── Install R packages not already in the base image ──────────────────────
+RUN R -e "install.packages(c('CARBayesST', 'yaml'), repos = 'https://cloud.r-project.org')"

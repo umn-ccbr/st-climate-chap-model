@@ -9,12 +9,9 @@
 # Run directly:
 #   docker run --rm -p 9090:8000 malaria-spatiotemporal
 
-FROM --platform=linux/amd64 ghcr.io/dhis2-chap/chapkit-r-inla:latest
+FROM ghcr.io/umn-ccbr/st-climate-chap-model-base:latest
 
 WORKDIR /work
-
-# ── Install R packages not already in the base image ──────────────────────
-RUN R -e "install.packages(c('CARBayesST', 'yaml'), repos = 'https://cloud.r-project.org')"
 
 COPY pyproject.toml               ./pyproject.toml
 COPY uv.lock                      ./uv.lock
@@ -30,6 +27,6 @@ COPY model_helpers.R              ./model_helpers.R
 COPY main.py                      ./main.py
 COPY scripts/                     ./scripts/
 
-LABEL org.opencontainers.image.source https://github.com/umn-ccbr/st-climate-chap-model
+LABEL org.opencontainers.image.source=https://github.com/umn-ccbr/st-climate-chap-model
 
 CMD ["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"]

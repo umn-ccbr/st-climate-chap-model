@@ -1,11 +1,9 @@
 name: Build and publish Docker image
 
 on:
-  push:
-    branches: ["main"]
-    tags: ["v*"]
-  pull_request:
-    branches: ["main"]
+  release:
+    types: [published]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -49,6 +47,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.APP_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.APP_IMAGE }}:${{ github.event.release.tag_name || github.sha }}
