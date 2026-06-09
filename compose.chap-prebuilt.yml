@@ -1,7 +1,7 @@
 # compose.my-model.yml
 services:
   malaria-spatial-model:
-    image: ghcr.io/artemish/malaria-spatial-model:latest
+    image: ghcr.io/umn-ccbr/st-climate-chap-model:latest
     platform: linux/amd64  # only if your base image needs it
     ports:
       - "5010:8000"   # host:container - host port must not collide with chap (8000) or other models
