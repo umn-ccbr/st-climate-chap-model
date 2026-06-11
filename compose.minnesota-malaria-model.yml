@@ -1,4 +1,6 @@
-# compose.my-model.yml
+# Docker Compose file for integration of our model with ChapKit
+# example to start chap-core with our model:
+# $ docker compose -f compose.yml -f compose.minnesota-malaria-model.yml
 services:
   malaria-spatial-model:
     image: ghcr.io/umn-ccbr/st-climate-chap-model:latest
