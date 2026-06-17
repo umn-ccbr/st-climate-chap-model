@@ -16,8 +16,11 @@ WORKDIR /work
 COPY pyproject.toml               ./pyproject.toml
 COPY uv.lock                      ./uv.lock
 
-# ── Install Python deps (chapkit + spatial utils) ───────────────────────────
-RUN uv pip install chapkit geopandas
+# ── Install Python deps (chapkit + spatial utils) from the lockfile ─────────
+# --frozen pins to uv.lock for reproducible builds, --no-dev skips dev-only
+# deps, --no-install-project because this is a service, not a package.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    UV_PROJECT_ENVIRONMENT=/app/.venv uv sync --frozen --no-dev --no-install-project
 
 # ── Copy model source files ────────────────────────────────────────────────
 COPY utils.py                     ./utils.py
